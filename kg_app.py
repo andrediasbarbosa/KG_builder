@@ -414,7 +414,7 @@ with st.sidebar:
 
 # ---------- Main header ----------
 st.markdown("""
-# 🧠 NotebookLM-style Local KG Builder
+# 🧠 NotebookLM-style KG Builder (web version)
 Upload a set of sources on the left, then build a 3D knowledge graph from them. Use **Generate Knowledge Graph** for your advanced pipeline (external module) or try **KG-Graph basic** for a simple baseline.
 """)
 
