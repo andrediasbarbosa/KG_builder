@@ -16,6 +16,8 @@
 # The UI / visualizer expects:
 #   nodes: {"id": <entity_id>, "group": int, "val": numeric weight}
 #   links: {"source": <id>, "target": <id>, "value": numeric weight}
+#
+# Placeholder for future function
 
 from __future__ import annotations
 from typing import Dict, Any
