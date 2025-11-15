@@ -43,7 +43,7 @@ except Exception:
 
 # ---------- Page config ----------
 st.set_page_config(page_title="NotebookLM-style KG Builder", page_icon="🧠", layout="wide")
-SUPPORTED_EXTS = {".pdf", ".docx", ".txt", ".md"}
+SUPPORTED_EXTS = {".pdf", ".docx", ".txt"}
 
 # ---------- Text extraction ----------
 def extract_text_from_file(uploaded_file) -> str:
@@ -415,7 +415,7 @@ with st.sidebar:
 # ---------- Main header ----------
 st.markdown("""
 # 🧠 NotebookLM-style KG Builder (web version)
-Upload a set of sources on the left, then build a 3D knowledge graph from them. Use **Generate Knowledge Graph** for your advanced pipeline (external module) or try **KG-Graph basic** for a simple baseline.
+Upload a set of sources on the left, then build a 3D knowledge graph from them. Using **Generate Knowledge Graph** for our advanced pipeline. Also available *KG-Graph basic** for a simple baseline.
 """)
 
 # ---------- Read files and preview ----------
