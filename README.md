@@ -2,4 +2,4 @@
 
 This project aims to build a local application with a user interface inspired by NotebookLM, enabling users to upload multiple files, process their contents, and generate 3D knowledge graphs interactively.
 
-The application provides placeholders for knowledge graph (KG) construction logic and includes a simple baseline called "KG-Graph Basic", which identifies and visualizes entities and relationships using basic algorithms.
+The application provides placeholders for knowledge graph (KG) construction logic and includes a simple baseline called "KG-Graph Basic", which identifies and visualizes entities and relationships using basic algorithms. There is also an option for "Advanced KG" which is being updated and should be the focus of the project.
