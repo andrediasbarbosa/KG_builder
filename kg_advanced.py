@@ -20,7 +20,7 @@
 # Placeholder for future function
 
 from __future__ import annotations
-from typing import Dict, Any, List
+from typing import Dict, Any
 import re
 from collections import defaultdict
 

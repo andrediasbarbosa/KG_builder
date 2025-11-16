@@ -400,8 +400,9 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### 🚀 Actions")
-    gen_adv = st.button("Generate Knowledge Graph", type="primary")
     gen_basic = st.button("KG-Graph basic")
+    gen_adv = st.button("KG-Graph advanced", type="primary")
+    gen_llm = st.button("LLM generated KG")
 
     st.markdown("---")
     st.markdown("### 🧪 Diagnostics")
@@ -415,7 +416,8 @@ with st.sidebar:
 # ---------- Main header ----------
 st.markdown("""
 # 🧠 NotebookLM-style KG Builder (web version)
-Upload a set of sources on the left, then build a 3D knowledge graph from them. Using **Generate Knowledge Graph** for our advanced pipeline. Also available *KG-Graph basic** for a simple baseline.
+Upload a set of sources on the left, then build a 3D knowledge graph from them. Using **Generate Knowledge Graph** for our advanced pipeline. \
+Also available *KG-Graph basic** for a simple baseline. MAX 1Mb in docs for web-run.
 """)
 
 # ---------- Read files and preview ----------
@@ -442,7 +444,7 @@ if "graph_data" not in st.session_state:
     st.session_state["graph_data"] = None
 
 # ---------- Actions ----------
-if (gen_adv or gen_basic) and not texts:
+if (gen_adv or gen_basic or gen_llm) and not texts:
     st.warning("Please upload at least one document first.")
 
 if gen_adv and texts:
@@ -453,6 +455,12 @@ if gen_adv and texts:
 if gen_basic and texts:
     with st.spinner("Building basic co-occurrence graph…"):
         g = build_kg_basic(texts)
+        st.session_state["graph_data"] = g
+
+if gen_llm and texts:
+    from kg_llm_generated import kg_llm_generated
+    with st.spinner("Building LLM-generated knowledge graph…"):
+        g = kg_llm_generated(texts)
         st.session_state["graph_data"] = g
 
 # ---------- Threshold + render ----------
