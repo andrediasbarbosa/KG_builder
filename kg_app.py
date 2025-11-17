@@ -215,9 +215,23 @@ def build_kg_basic(texts: Dict[str, str]) -> Dict[str, Any]:
     return {"nodes": nodes, "links": links, "evidence": ev_list}
 
 # ---------- 3D Renderer ----------
-def render_3d_force_graph(graph_data: Dict[str, Any], height: int = 700):
+def render_3d_force_graph(
+    graph_data: Dict[str, Any],
+    height: int = 700,
+    show_labels: bool = True,
+    show_particles: bool = True,
+    center_on_click: bool = True,
+):
     import streamlit.components.v1 as components
     data_json = json.dumps(graph_data)
+
+    opts_json = json.dumps(
+        {
+            "showLabels": show_labels,
+            "showParticles": show_particles,
+            "centerOnClick": center_on_click,
+        }
+    )
 
     html_template = """
 <!DOCTYPE html>
@@ -230,6 +244,10 @@ def render_3d_force_graph(graph_data: Dict[str, Any], height: int = 700):
     #container { position:absolute; left:0; top:0; right:360px; bottom:0; }
     #titlebar { position: absolute; top: 12px; left: 12px; color: #eaeefb; font-family: ui-sans-serif, system-ui; font-size: 14px; opacity: .9; z-index:10;}
     .pill { display:inline-block; background:#1b2340; padding:6px 10px; border-radius:999px; border:1px solid #2b365f }
+    #legend { position:absolute; top:12px; right:380px; color:#eaeefb; font-family: ui-sans-serif, system-ui; font-size:13px; background:#111a3a; padding:10px 12px; border:1px solid #2b365f; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.35); opacity:.95; }
+    #legend .legend-row { display:flex; align-items:center; margin-bottom:6px; gap:10px; }
+    #legend .swatch { width:14px; height:14px; border-radius:999px; border:1px solid rgba(255,255,255,0.3); }
+    #legend .muted { opacity:.75; }
     #inspector { position:absolute; right:0; top:0; width:360px; height:100%; background:#101736; border-left:1px solid #2b365f; color:#eaeefb; font-family: ui-sans-serif, system-ui; padding:14px; overflow:auto; }
   </style>
   <script src='https://unpkg.com/3d-force-graph@1.70.8/dist/3d-force-graph.min.js'></script>
@@ -237,6 +255,7 @@ def render_3d_force_graph(graph_data: Dict[str, Any], height: int = 700):
 </head>
 <body>
   <div id='titlebar'><span class='pill'>Knowledge Graph (3D)</span></div>
+  <div id='legend'></div>
   <div id='container'></div>
   <div id='inspector'>
     <div style='font-size:14px; opacity:.8; margin-bottom:8px;'>Inspector</div>
@@ -244,6 +263,27 @@ def render_3d_force_graph(graph_data: Dict[str, Any], height: int = 700):
   </div>
   <script>
     const data = __DATA__;
+    const opts = __OPTS__;
+    const groupLabels = {1: 'Basic', 2: 'Advanced', 3: 'LLM'};
+    const groupColors = {1: '#7bdff2', 2: '#c3aed6', 3: '#ffcf9d'};
+
+    const legend = document.getElementById('legend');
+    const countsByGroup = new Map();
+    (data.nodes || []).forEach(n => {
+      const g = n.group || 1;
+      countsByGroup.set(g, (countsByGroup.get(g) || 0) + 1);
+    });
+
+    let legendHtml = '<div style="font-weight:600;margin-bottom:6px;">Legend</div>';
+    Object.entries(groupLabels).forEach(([k, label]) => {
+      const count = countsByGroup.get(Number(k)) || 0;
+      legendHtml += `
+        <div class="legend-row">
+          <div class="swatch" style="background:${groupColors[k] || '#9ab'};"></div>
+          <div><div>${label}</div><div class="muted">${count} nodes</div></div>
+        </div>`;
+    });
+    legend.innerHTML = legendHtml;
 
     const adj = new Map();
     const weight = new Map();
@@ -277,7 +317,7 @@ def render_3d_force_graph(graph_data: Dict[str, Any], height: int = 700):
       .graphData(data)
       .nodeId('id')
       .nodeVal('val')
-      .nodeAutoColorBy('group')
+      .nodeColor(n => groupColors[n.group] || '#bcd7ff')
       .nodeLabel(n => n.id)
       .backgroundColor('#0b1020')
       .linkColor(l => {
@@ -294,11 +334,20 @@ def render_3d_force_graph(graph_data: Dict[str, Any], height: int = 700):
         return (a === selectedId || b === selectedId) ? w + 1.2 : w;
       })
       .linkOpacity(0.7)
-      .linkDirectionalParticles(2)
+      .linkDirectionalParticles(opts.showParticles ? 2 : 0)
       .linkDirectionalParticleSpeed(0.006)
       .onNodeClick(node => {
         selectedId = node.id;
         updateInspector(node);
+        if (opts.centerOnClick) {
+          const distance = 160;
+          const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+          Graph.cameraPosition(
+            { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+            node,
+            1500
+          );
+        }
         Graph.linkColor(Graph.linkColor());
         Graph.linkWidth(Graph.linkWidth());
       })
@@ -307,35 +356,38 @@ def render_3d_force_graph(graph_data: Dict[str, Any], height: int = 700):
         const group = new THREE.Group();
         const size = Math.max(3, Math.cbrt(node.val || 1) * 3);
         const geometry = new THREE.SphereGeometry(size, 16, 16);
-        const material = new THREE.MeshPhongMaterial({ color: 0x88ccff, shininess: 30 });
+        const baseColor = groupColors[node.group] || '#88ccff';
+        const material = new THREE.MeshPhongMaterial({ color: baseColor, shininess: 30 });
         const sphere = new THREE.Mesh(geometry, material);
         group.add(sphere);
 
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const fontSize = 38;
-        ctx.font = fontSize + 'px sans-serif';
-        const text = String(node.id || '');
-        const padding = 20;
-        const w = ctx.measureText(text).width + padding * 2;
-        const h = fontSize + padding * 2;
-        canvas.width = w;
-        canvas.height = h;
-        const ctx2 = canvas.getContext('2d');
-        ctx2.font = fontSize + 'px sans-serif';
-        ctx2.fillStyle = 'rgba(15,20,40,0.8)';
-        ctx2.fillRect(0, 0, w, h);
-        ctx2.fillStyle = 'white';
-        ctx2.textBaseline = 'middle';
-        ctx2.fillText(text, padding, h / 2);
+        if (opts.showLabels) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const fontSize = 38;
+          ctx.font = fontSize + 'px sans-serif';
+          const text = String(node.id || '');
+          const padding = 20;
+          const w = ctx.measureText(text).width + padding * 2;
+          const h = fontSize + padding * 2;
+          canvas.width = w;
+          canvas.height = h;
+          const ctx2 = canvas.getContext('2d');
+          ctx2.font = fontSize + 'px sans-serif';
+          ctx2.fillStyle = 'rgba(15,20,40,0.8)';
+          ctx2.fillRect(0, 0, w, h);
+          ctx2.fillStyle = 'white';
+          ctx2.textBaseline = 'middle';
+          ctx2.fillText(text, padding, h / 2);
 
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.minFilter = THREE.LinearFilter;
-        const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
-        const sprite = new THREE.Sprite(spriteMat);
-        sprite.scale.set(w / 8, h / 8, 1);
-        sprite.position.set(0, size + (h / 16) + 2, 0);
-        group.add(sprite);
+          const texture = new THREE.CanvasTexture(canvas);
+          texture.minFilter = THREE.LinearFilter;
+          const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+          const sprite = new THREE.Sprite(spriteMat);
+          sprite.scale.set(w / 8, h / 8, 1);
+          sprite.position.set(0, size + (h / 16) + 2, 0);
+          group.add(sprite);
+        }
 
         return group;
       });
@@ -378,7 +430,7 @@ def render_3d_force_graph(graph_data: Dict[str, Any], height: int = 700):
 </html>
     """
 
-    html = html_template.replace("__DATA__", data_json)
+    html = html_template.replace("__DATA__", data_json).replace("__OPTS__", opts_json)
     import streamlit.components.v1 as components
     components.html(html, height=height)
 
@@ -397,6 +449,9 @@ with st.sidebar:
     min_freq = st.slider("Minimum entity frequency", 1, 5, 1, 1)
     min_link = st.slider("Minimum link weight", 1, 5, 1, 1)
     graph_height = st.slider("Graph canvas height (px)", 400, 1200, 720, 20)
+    show_labels = st.checkbox("Show node labels", value=True)
+    show_particles = st.checkbox("Animate link particles", value=True)
+    center_on_click = st.checkbox("Center camera on click", value=True)
 
     st.markdown("---")
     st.markdown("### 🚀 Actions")
@@ -489,7 +544,22 @@ if st.session_state["graph_data"]:
         ]
 
     st.markdown("## 🕸️ Knowledge Graph (3D)")
-    render_3d_force_graph(filtered_graph, height=graph_height)
+    node_count = len(filt_nodes)
+    link_count = len(filt_links)
+    evidence_count = sum(len(ev.get("sentences", [])) for ev in filtered_graph.get("evidence", []))
+
+    stats = st.columns(3)
+    stats[0].metric("Nodes shown", node_count)
+    stats[1].metric("Links shown", link_count)
+    stats[2].metric("Evidence snippets", evidence_count)
+
+    render_3d_force_graph(
+        filtered_graph,
+        height=graph_height,
+        show_labels=show_labels,
+        show_particles=show_particles,
+        center_on_click=center_on_click,
+    )
 
     colA, colB = st.columns(2)
     with colA:
